@@ -1,0 +1,5 @@
+username,password,profile
+student01,random-demo-value,default
+admin,123456,default
+,example-pass,limited
+same,same,trial
