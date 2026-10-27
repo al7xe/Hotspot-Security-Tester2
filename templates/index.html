@@ -122,6 +122,26 @@
     {% endif %}
 
     <section class="panel">
+      <div class="panel-heading"><div><span class="step">03</span><h2>مسار تدقيق التركيبات الآمن</h2></div><span class="tag">/test_combinations</span></div>
+      <p class="muted">هذا المسار البديل يقيس استجابة HTTP لصفحة اختبار محلية باستخدام طلبات GET محدودة، ويصدر CSV. لا يولّد رموز دخول ولا يرسل أسماء مستخدمين أو كلمات مرور، ولا يستنتج نجاح المصادقة من رمز HTTP.</p>
+      <form method="post" action="{{ url_for('lab_rate_limit_check') }}">
+        <input type="hidden" name="audit_route" value="test_combinations">
+        <div class="form-grid">
+          <label>رابط صفحة اختبار محلية
+            <input type="url" name="target_url" placeholder="http://192.168.88.1/" required>
+            <small>عنوان IP خاص أو مضيف محلي فقط</small>
+          </label>
+          <label>عدد الطلبات
+            <input type="number" name="count" min="1" max="10" value="5" required>
+            <small>من 1 إلى 10 طلبات</small>
+          </label>
+        </div>
+        <button type="submit">تنفيذ التدقيق وتنزيل CSV</button>
+      </form>
+      <p class="hint">يستخدم تأخيرًا قدره ثانيتان بين الطلبات، ويحتفظ بسجل التدقيق في SQLite. لا تستخدم رابط صفحة تسجيل الدخول أو أي نظام لا تملك تصريحًا لاختباره.</p>
+    </section>
+
+    <section class="panel">
       <div class="panel-heading"><div><span class="step">03</span><h2>اختبار سلوك HTTP وتقييد الطلبات</h2></div><span class="tag">معمل محلي</span></div>
       <p class="muted">يرسل طلبات GET قليلة إلى صفحة محلية غير محمية، دون إرسال اسم مستخدم أو كلمة مرور. يسجل رمز HTTP وزمن الاستجابة وإعادة التوجيه، ثم ينزّل تقرير CSV.</p>
       <form method="post" action="{{ url_for('lab_rate_limit_check') }}">
