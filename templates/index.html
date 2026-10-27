@@ -16,7 +16,7 @@
     <section class="hero">
       <span class="eyebrow">NETWORK SECURITY TOOLKIT</span>
       <h1>إدارة وفحص بطاقات الهوتسبوت</h1>
-      <p>أنشئ بطاقات تجريبية عشوائية بصيغة CSV أو ارفع ملفًا موجودًا لفحص مؤشرات بسيطة. لا يتم الاتصال بالراوتر أو تجربة تسجيل الدخول.</p>
+      <p>أنشئ بطاقات تجريبية عشوائية بصيغة CSV، أو افحص ملفًا، أو قارن أسماء المستخدمين مع قائمة Hotspot على MikroTik عبر واجهة قراءة فقط.</p>
     </section>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -92,7 +92,7 @@
     {% endif %}
 
     <section class="panel history">
-      <div class="panel-heading"><div><span class="step">03</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
+      <div class="panel-heading"><div><span class="step">04</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
       {% if history %}
       <div class="table-wrap"><table><thead><tr><th>الوقت (UTC)</th><th>الملف</th><th>السجلات</th><th>الملاحظات</th></tr></thead>
       <tbody>{% for item in history %}<tr><td>{{ item[0][:19].replace("T", " ") }}</td><td>{{ item[1] }}</td><td>{{ item[2] }}</td><td>{{ item[3] }}</td></tr>{% endfor %}</tbody></table></div>
