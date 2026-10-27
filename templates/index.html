@@ -26,6 +26,36 @@
     {% endwith %}
 
     <section class="panel">
+      <div class="panel-heading"><div><span class="step">00</span><h2>حساب عدد الاحتمالات نظريًا</h2></div><span class="tag">حساب فقط</span></div>
+      <p class="muted">يحسب عدد التركيبات دون إنشاء قائمة تخمين أو تجربة تسجيل دخول. استخدمه لتوثيق حجم مساحة الرموز ومراجعة قوة تصميم البطاقات.</p>
+      <form method="post" action="{{ url_for('combination_count') }}">
+        <div class="form-grid">
+          <label>الطول الكلي للرمز
+            <input type="number" name="total_digits" min="1" max="18" value="6" required>
+            <small>من 1 إلى 18 خانة رقمية</small>
+          </label>
+          <label>أرقام ثابتة في البداية (اختياري)
+            <input type="text" name="fixed_prefix" maxlength="18" inputmode="numeric" placeholder="مثال: 47">
+            <small>كل خانة ثابتة تقلل عدد الاحتمالات</small>
+          </label>
+          <label>أرقام ثابتة في النهاية (اختياري)
+            <input type="text" name="fixed_suffix" maxlength="18" inputmode="numeric" placeholder="مثال: 9">
+            <small>تُحسب الخانات المتبقية كأرقام متغيرة</small>
+          </label>
+        </div>
+        <button type="submit">حساب عدد التركيبات</button>
+      </form>
+      {% if combination_summary %}
+      <div class="notice">
+        عدد الخانات المتغيرة: <strong>{{ combination_summary.variable_digits }}</strong> —
+        إجمالي التركيبات الممكنة: <strong>{{ "{:,}".format(combination_summary.possibilities) }}</strong>
+      </div>
+      <p class="hint">الطول: {{ combination_summary.total_digits }}؛ المقدمة الثابتة: {{ combination_summary.fixed_prefix or "لا يوجد" }}؛ النهاية الثابتة: {{ combination_summary.fixed_suffix or "لا يوجد" }}. لم يتم إنشاء بيانات اعتماد أو إجراء أي اتصال بالراوتر.</p>
+      {% endif %}
+      <a href="{{ url_for('report_template') }}">تنزيل قالب تقرير اختبار الحسابات المصرّح بها (CSV)</a>
+    </section>
+
+    <section class="panel">
       <div class="panel-heading"><div><span class="step">01</span><h2>إنشاء ملف بطاقات CSV</h2></div><span class="tag">تصدير مباشر</span></div>
       <p class="muted">ينشئ التطبيق رموزًا عشوائية جديدة وفريدة للاختبار أو لإعداد بطاقاتك الخاصة. لا يحلل عينات موجودة لتخمين أو تعداد كلمات مرور محتملة.</p>
       <form method="post" action="{{ url_for('generate_csv') }}">
