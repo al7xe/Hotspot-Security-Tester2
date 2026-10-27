@@ -177,7 +177,7 @@ def report_template():
     writer.writerow(["test_id", "authorized_test_account", "expected_result", "observed_result", "notes"])
     writer.writerow(["TEST-001", "yes/no", "accepted/rejected", "accepted/rejected/not-run", ""])
     return Response(
-        "\\ufeff" + output.getvalue(), mimetype="text/csv; charset=utf-8",
+        "\ufeff" + output.getvalue(), mimetype="text/csv; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="hotspot_authorized_test_report_template.csv"'}
     )
 
