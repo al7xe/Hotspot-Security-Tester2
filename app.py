@@ -298,6 +298,81 @@ def router_check():
         flash(str(exc) or "حدث خطأ أثناء التحقق.", "error")
     return redirect(url_for("index"))
 
+@app.route("/lab-rate-limit-check", methods=["POST"])
+def lab_rate_limit_check():
+    """Low-impact HTTP behavior probe for a local lab; does not submit credentials."""
+    import time
+    target = request.form.get("probe_url", "").strip()
+    repetitions_raw = request.form.get("probe_repetitions", "3")
+    delay_raw = request.form.get("probe_delay", "2")
+    if not target:
+        flash("أدخل عنوان صفحة اختبار غير محمية في معملك.", "error")
+        return redirect(url_for("index"))
+    try:
+        parsed = urlparse(target)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.username or parsed.password:
+            raise ValueError("أدخل رابط HTTP/HTTPS صحيحًا دون بيانات دخول مضمّنة.")
+        host = parsed.hostname
+        try:
+            addr = ipaddress.ip_address(host)
+            if not (addr.is_private or addr.is_loopback or addr.is_link_local):
+                raise ValueError("يُسمح فقط بعنوان IP خاص/محلي للمعمل.")
+        except ValueError as ip_error:
+            if "يُسمح فقط" in str(ip_error):
+                raise
+            if host != "localhost" and not host.endswith(".local"):
+                raise ValueError("استخدم عنوان IP خاصًا أو اسم مضيف محلي ينتهي بـ .local.")
+        repetitions = int(repetitions_raw)
+        delay_seconds = float(delay_raw)
+        if not 1 <= repetitions <= 10:
+            raise ValueError("عدد الطلبات يجب أن يكون من 1 إلى 10.")
+        if not 1 <= delay_seconds <= 10:
+            raise ValueError("التأخير يجب أن يكون من ثانية إلى 10 ثوانٍ.")
+        observations = []
+        with requests.Session() as session:
+            for i in range(repetitions):
+                if i:
+                    time.sleep(delay_seconds)
+                started = time.monotonic()
+                try:
+                    response = session.get(target, timeout=(3, 8), allow_redirects=False, verify=True)
+                    elapsed_ms = round((time.monotonic() - started) * 1000, 2)
+                    if response.status_code == 429:
+                        note = "HTTP 429: تقييد طلبات محتمل"
+                    elif response.status_code in (301, 302, 303, 307, 308):
+                        note = "إعادة توجيه؛ افحص Location"
+                    elif response.status_code in (401, 403):
+                        note = "رفض وصول؛ راجع سياسة الوصول"
+                    else:
+                        note = "استجابة مرصودة؛ ليست اختبارًا لتسجيل الدخول"
+                    observations.append({"number": i + 1, "status": response.status_code,
+                                         "elapsed_ms": elapsed_ms,
+                                         "location": response.headers.get("Location", "")[:300],
+                                         "note": note})
+                except requests.exceptions.RequestException as exc:
+                    observations.append({"number": i + 1, "status": "NETWORK_ERROR",
+                                         "elapsed_ms": "", "location": "",
+                                         "note": type(exc).__name__})
+        now = datetime.now(timezone.utc).isoformat()
+        output = io.StringIO(newline="")
+        writer = csv.writer(output)
+        writer.writerow(["timestamp_utc", "target", "request_number", "http_status", "elapsed_ms", "location", "observation"])
+        for item in observations:
+            writer.writerow([now, target, item["number"], item["status"], item["elapsed_ms"], item["location"], item["note"]])
+        payload = "\\ufeff" + output.getvalue()
+        init_db()
+        with sqlite3.connect(DB_PATH) as db:
+            db.execute(
+                "INSERT INTO audit_log(created_at, filename, rows_checked, findings) VALUES (?, ?, ?, ?)",
+                (now, "lab-rate-limit:" + host, len(observations),
+                 sum(1 for item in observations if item["status"] == 429)),
+            )
+        return Response(payload, mimetype="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": 'attachment; filename="hotspot_lab_rate_limit_report.csv"'})
+    except (ValueError, TypeError) as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
+
 @app.route("/health")
 def health():
     return {"status": "ok", "app": "Hotspot Security Tester"}
