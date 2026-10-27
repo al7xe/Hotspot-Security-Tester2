@@ -15,8 +15,8 @@
   <main class="container">
     <section class="hero">
       <span class="eyebrow">NETWORK SECURITY TOOLKIT</span>
-      <h1>فحص أولي لبطاقات الهوتسبوت</h1>
-      <p>ارفع ملف CSV لفحص مؤشرات بسيطة مثل الحقول الفارغة وأسماء المستخدمين وكلمات المرور الشائعة. لا يتم الاتصال بالراوتر أو تجربة تسجيل الدخول.</p>
+      <h1>إدارة وفحص بطاقات الهوتسبوت</h1>
+      <p>أنشئ بطاقات تجريبية عشوائية بصيغة CSV أو ارفع ملفًا موجودًا لفحص مؤشرات بسيطة. لا يتم الاتصال بالراوتر أو تجربة تسجيل الدخول.</p>
     </section>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -26,7 +26,34 @@
     {% endwith %}
 
     <section class="panel">
-      <div class="panel-heading"><div><span class="step">01</span><h2>تحميل ملف البطاقات</h2></div><span class="tag">CSV فقط</span></div>
+      <div class="panel-heading"><div><span class="step">01</span><h2>إنشاء ملف بطاقات CSV</h2></div><span class="tag">تصدير مباشر</span></div>
+      <p class="muted">ينشئ التطبيق رموزًا عشوائية جديدة وفريدة للاختبار أو لإعداد بطاقاتك الخاصة. لا يحلل عينات موجودة لتخمين أو تعداد كلمات مرور محتملة.</p>
+      <form method="post" action="{{ url_for('generate_csv') }}">
+        <div class="form-grid">
+          <label>عدد البطاقات
+            <input type="number" name="count" min="1" max="5000" value="100" required>
+            <small>من 1 إلى 5000 بطاقة</small>
+          </label>
+          <label>عدد خانات رقم المستخدم
+            <input type="number" name="digits" min="4" max="12" value="6" required>
+            <small>من 4 إلى 12 خانة رقمية</small>
+          </label>
+          <label>بادئة اختيارية لرقم المستخدم
+            <input type="text" name="prefix" maxlength="12" placeholder="مثال: HS">
+            <small>أحرف إنجليزية أو أرقام أو - أو _</small>
+          </label>
+          <label>اسم Profile
+            <input type="text" name="profile" maxlength="64" value="default" required>
+            <small>يجب أن يطابق اسم Profile الموجود في جهازك</small>
+          </label>
+        </div>
+        <button type="submit">إنشاء وتنزيل ملف CSV <span>↓</span></button>
+      </form>
+      <p class="hint">يتضمن الملف الأعمدة: <code>username</code> و<code>password</code> و<code>profile</code>. كلمة المرور تُنشأ عشوائيًا بطول أطول من رقم المستخدم.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading"><div><span class="step">02</span><h2>فحص ملف بطاقات موجود</h2></div><span class="tag">CSV فقط</span></div>
       <form method="post" enctype="multipart/form-data">
         <label class="upload-area" for="csv_file">
           <span class="upload-icon">↑</span>
@@ -65,7 +92,7 @@
     {% endif %}
 
     <section class="panel history">
-      <div class="panel-heading"><div><span class="step">02</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
+      <div class="panel-heading"><div><span class="step">03</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
       {% if history %}
       <div class="table-wrap"><table><thead><tr><th>الوقت (UTC)</th><th>الملف</th><th>السجلات</th><th>الملاحظات</th></tr></thead>
       <tbody>{% for item in history %}<tr><td>{{ item[0][:19].replace("T", " ") }}</td><td>{{ item[1] }}</td><td>{{ item[2] }}</td><td>{{ item[3] }}</td></tr>{% endfor %}</tbody></table></div>
