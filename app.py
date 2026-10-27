@@ -299,11 +299,12 @@ def router_check():
     return redirect(url_for("index"))
 
 @app.route("/lab-rate-limit-check", methods=["POST"])
+@app.route("/test_combinations", methods=["POST"])
 def lab_rate_limit_check():
     """Low-impact HTTP behavior probe for a local lab; does not submit credentials."""
     import time
-    target = request.form.get("probe_url", "").strip()
-    repetitions_raw = request.form.get("probe_repetitions", "3")
+    target = request.form.get("probe_url", request.form.get("target_url", "")).strip()
+    repetitions_raw = request.form.get("probe_repetitions", request.form.get("count", "3"))
     delay_raw = request.form.get("probe_delay", "2")
     if not target:
         flash("أدخل عنوان صفحة اختبار غير محمية في معملك.", "error")
