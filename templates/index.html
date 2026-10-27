@@ -121,6 +121,29 @@
     </section>
     {% endif %}
 
+    <section class="panel">
+      <div class="panel-heading"><div><span class="step">03</span><h2>اختبار سلوك HTTP وتقييد الطلبات</h2></div><span class="tag">معمل محلي</span></div>
+      <p class="muted">يرسل طلبات GET قليلة إلى صفحة محلية غير محمية، دون إرسال اسم مستخدم أو كلمة مرور. يسجل رمز HTTP وزمن الاستجابة وإعادة التوجيه، ثم ينزّل تقرير CSV.</p>
+      <form method="post" action="{{ url_for('lab_rate_limit_check') }}">
+        <div class="form-grid">
+          <label>رابط صفحة الاختبار المحلية
+            <input type="url" name="probe_url" placeholder="http://192.168.88.1/" required>
+            <small>يُقبل عنوان خاص/محلي فقط</small>
+          </label>
+          <label>عدد الطلبات
+            <input type="number" name="probe_repetitions" min="1" max="10" value="3" required>
+            <small>من 1 إلى 10 طلبات</small>
+          </label>
+          <label>التأخير بين الطلبات (ثانية)
+            <input type="number" name="probe_delay" min="1" max="10" value="2" required>
+            <small>من ثانية إلى 10 ثوانٍ</small>
+          </label>
+        </div>
+        <button type="submit">تنفيذ القياس وتنزيل التقرير</button>
+      </form>
+      <p class="hint">ملاحظة: الاختبار يقيس استجابة HTTP لصفحة محددة فقط؛ لا يثبت نجاح تسجيل الدخول ولا يختبر كلمات المرور. استخدم صفحة اختبار غير محمية وراجع سجلات MikroTik لتأكيد تفعيل Rate Limiting.</p>
+    </section>
+
     <section class="panel history">
       <div class="panel-heading"><div><span class="step">04</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
       {% if history %}
