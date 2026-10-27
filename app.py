@@ -5,6 +5,9 @@ import secrets
 import sqlite3
 import string
 from datetime import datetime, timezone
+from urllib.parse import urlparse
+import ipaddress
+import requests
 
 from flask import Flask, flash, redirect, render_template, request, url_for, Response
 
@@ -140,6 +143,116 @@ def generate_csv():
     except (ValueError, TypeError) as exc:
         flash(str(exc), "error")
         return redirect(url_for("index"))
+
+@app.route("/router-check", methods=["POST"])
+def router_check():
+    uploaded = request.files.get("router_csv")
+    base_url = request.form.get("router_url", "").strip().rstrip("/")
+    api_user = request.form.get("api_user", "").strip()
+    api_password = request.form.get("api_password", "")
+    if not uploaded or not uploaded.filename or not uploaded.filename.lower().endswith(".csv"):
+        flash("اختر ملف CSV صحيحًا للتحقق من أسماء المستخدمين.", "error")
+        return redirect(url_for("index"))
+    if not base_url or not api_user or not api_password:
+        flash("أدخل عنوان الراوتر واسم مستخدم API وكلمة مروره.", "error")
+        return redirect(url_for("index"))
+    try:
+        parsed = urlparse(base_url)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname or parsed.path not in {"", "/"} or parsed.query or parsed.fragment:
+            raise ValueError("أدخل عنوانًا مثل https://192.168.88.1 دون مسار إضافي.")
+        host = parsed.hostname
+        try:
+            addr = ipaddress.ip_address(host)
+            if not (addr.is_private or addr.is_loopback or addr.is_link_local):
+                raise ValueError("لأمان الاتصال، يجب أن يكون عنوان الراوتر عنوانًا محليًا/خاصًا.")
+        except ValueError as ip_error:
+            if "لأمان الاتصال" in str(ip_error):
+                raise
+            if not (host.endswith(".local") or host == "localhost"):
+                raise ValueError("استخدم عنوان IP خاصًا للراوتر أو اسمًا محليًا ينتهي بـ .local.")
+        text_stream = io.TextIOWrapper(uploaded.stream, encoding="utf-8-sig", newline="")
+        reader = csv.DictReader(text_stream)
+        if not reader.fieldnames or "username" not in {name.strip().lower() for name in reader.fieldnames if name}:
+            raise ValueError("يجب أن يحتوي CSV على عمود username.")
+        usernames = []
+        for raw in reader:
+            row = {str(k).strip().lower(): (v or "").strip() for k, v in raw.items() if k}
+            if row.get("username"):
+                usernames.append(row["username"])
+        try:
+            text_stream.detach()
+        except Exception:
+            pass
+        if not usernames:
+            raise ValueError("لم يتم العثور على أسماء مستخدمين في الملف.")
+        if len(usernames) > 5000:
+            raise ValueError("الحد الأقصى 5000 اسم مستخدم في الملف.")
+        if parsed.scheme == "http" and host not in {"localhost", "127.0.0.1"}:
+            # RouterOS REST credentials are sent only to the explicitly supplied LAN router.
+            pass
+        response = requests.get(
+            base_url + "/rest/ip/hotspot/user",
+            auth=(api_user, api_password),
+            headers={"Accept": "application/json"},
+            timeout=(4, 12),
+            verify=True,
+            allow_redirects=False,
+        )
+        if response.status_code in (301, 302, 303, 307, 308):
+            raise ValueError("الراوتر أعاد تحويلًا؛ استخدم عنوان HTTPS الصحيح مباشرة.")
+        if response.status_code == 401:
+            raise ValueError("رفض الراوتر بيانات API. تحقق من اسم المستخدم وكلمة المرور وصلاحيات القراءة.")
+        if response.status_code == 403:
+            raise ValueError("حساب API لا يملك صلاحية قراءة مستخدمي Hotspot.")
+        response.raise_for_status()
+        router_users = response.json()
+        if not isinstance(router_users, list):
+            raise ValueError("استجابة الراوتر غير متوقعة. تأكد من إصدار RouterOS ودعم REST API.")
+        known = {}
+        for item in router_users:
+            if isinstance(item, dict) and item.get("name"):
+                known[str(item["name"])] = item
+        checked = []
+        for username in usernames:
+            item = known.get(username)
+            if item is None:
+                status = "غير موجود في قائمة المستخدمين"
+                css = "issue"
+            elif str(item.get("disabled", "false")).lower() in {"true", "yes"}:
+                status = "موجود لكنه معطّل"
+                css = "issue"
+            else:
+                status = "موجود ومفعّل (لم تُختبر كلمة المرور)"
+                css = "ok"
+            checked.append({"username": username, "status": status, "css": css})
+        router_results = {"rows": checked, "total": len(checked),
+                          "present": sum(1 for x in checked if x["status"].startswith("موجود ومفعّل")),
+                          "missing": sum(1 for x in checked if x["status"].startswith("غير موجود")),
+                          "disabled": sum(1 for x in checked if x["status"].startswith("موجود لكنه"))}
+        init_db()
+        with sqlite3.connect(DB_PATH) as db:
+            db.execute(
+                "INSERT INTO audit_log(created_at, filename, rows_checked, findings) VALUES (?, ?, ?, ?)",
+                (datetime.now(timezone.utc).isoformat(), "router-check:" + uploaded.filename[:170],
+                 len(checked), router_results["missing"] + router_results["disabled"]),
+            )
+        with sqlite3.connect(DB_PATH) as db:
+            history = db.execute(
+                "SELECT created_at, filename, rows_checked, findings FROM audit_log ORDER BY id DESC LIMIT 10"
+            ).fetchall()
+        return render_template("index.html", results=None, history=history, router_results=router_results)
+    except requests.exceptions.SSLError:
+        flash("فشل التحقق من شهادة HTTPS. لا تعطّل التحقق من الشهادة؛ استخدم شهادة موثوقة أو عنوان الراوتر الصحيح.", "error")
+    except requests.exceptions.Timeout:
+        flash("انتهت مهلة الاتصال. تحقق من الشبكة وتفعيل REST API في الراوتر.", "error")
+    except requests.exceptions.ConnectionError:
+        flash("تعذر الاتصال بالراوتر. تحقق من عنوانه وإتاحة REST API ومن قواعد الجدار الناري.", "error")
+    except requests.exceptions.HTTPError as exc:
+        code = exc.response.status_code if exc.response is not None else "?"
+        flash("أعاد RouterOS خطأ HTTP: " + str(code), "error")
+    except (ValueError, UnicodeDecodeError, csv.Error, requests.exceptions.RequestException) as exc:
+        flash(str(exc) or "حدث خطأ أثناء التحقق.", "error")
+    return redirect(url_for("index"))
 
 @app.route("/health")
 def health():
