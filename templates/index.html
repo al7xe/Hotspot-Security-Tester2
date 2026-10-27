@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hotspot Security Tester</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-mark">HS</div>
+    <div><strong>Hotspot Security Tester</strong><p>مراجعة أمان بطاقات الهوتسبوت — فحص محلي</p></div>
+    <span class="status"><i></i> يعمل محليًا</span>
+  </header>
+  <main class="container">
+    <section class="hero">
+      <span class="eyebrow">NETWORK SECURITY TOOLKIT</span>
+      <h1>فحص أولي لبطاقات الهوتسبوت</h1>
+      <p>ارفع ملف CSV لفحص مؤشرات بسيطة مثل الحقول الفارغة وأسماء المستخدمين وكلمات المرور الشائعة. لا يتم الاتصال بالراوتر أو تجربة تسجيل الدخول.</p>
+    </section>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}<div class="notice {{ category }}">{{ message }}</div>{% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <section class="panel">
+      <div class="panel-heading"><div><span class="step">01</span><h2>تحميل ملف البطاقات</h2></div><span class="tag">CSV فقط</span></div>
+      <form method="post" enctype="multipart/form-data">
+        <label class="upload-area" for="csv_file">
+          <span class="upload-icon">↑</span>
+          <strong>اختر ملف CSV من جهازك</strong>
+          <span>الحد الأقصى 2 ميغابايت</span>
+          <input id="csv_file" name="csv_file" type="file" accept=".csv,text/csv" required>
+        </label>
+        <p class="hint">الأعمدة المطلوبة: <code>username</code> و<code>password</code> و<code>profile</code>.</p>
+        <button type="submit">بدء الفحص المحلي <span>←</span></button>
+      </form>
+    </section>
+
+    {% if results %}
+    <section class="results">
+      <div class="section-title"><div><span class="eyebrow">SCAN SUMMARY</span><h2>نتيجة الفحص</h2></div></div>
+      <div class="stats">
+        <div class="stat"><span>عدد السجلات</span><strong>{{ results.total }}</strong></div>
+        <div class="stat warning"><span>الملاحظات</span><strong>{{ results.issues }}</strong></div>
+        <div class="stat"><span>السجلات دون ملاحظات</span><strong>{{ results.total - (results.rows|selectattr('issues')|list|length) }}</strong></div>
+      </div>
+      <div class="panel table-panel">
+        <h3>تفاصيل السجلات</h3>
+        <div class="table-wrap"><table>
+          <thead><tr><th>السطر</th><th>اسم المستخدم</th><th>Profile</th><th>الملاحظات</th></tr></thead>
+          <tbody>
+          {% for row in results.rows %}
+            <tr><td>{{ row.line }}</td><td>{{ row.username or "—" }}</td><td>{{ row.profile or "—" }}</td><td>{% if row.issues %}<span class="issue">{{ row.issues|join("، ") }}</span>{% else %}<span class="ok">لا توجد ملاحظات أولية</span>{% endif %}</td></tr>
+          {% else %}
+            <tr><td colspan="4">لا توجد سجلات داخل الملف.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table></div>
+      </div>
+      <p class="disclaimer">هذه مؤشرات فحص أولي وليست إثباتًا على اختراق الحساب أو سلامته. لا تُرفع كلمات المرور إلى أي خدمة خارجية.</p>
+    </section>
+    {% endif %}
+
+    <section class="panel history">
+      <div class="panel-heading"><div><span class="step">02</span><h2>سجل الفحوصات الأخيرة</h2></div><span class="tag">SQLite</span></div>
+      {% if history %}
+      <div class="table-wrap"><table><thead><tr><th>الوقت (UTC)</th><th>الملف</th><th>السجلات</th><th>الملاحظات</th></tr></thead>
+      <tbody>{% for item in history %}<tr><td>{{ item[0][:19].replace("T", " ") }}</td><td>{{ item[1] }}</td><td>{{ item[2] }}</td><td>{{ item[3] }}</td></tr>{% endfor %}</tbody></table></div>
+      {% else %}<p class="muted">لا توجد فحوصات محفوظة حتى الآن.</p>{% endif %}
+    </section>
+    <footer>Hotspot Security Tester · أداة تعليمية محلية · <span>م: إلياس اليفرسي</span></footer>
+  </main>
+</body>
+</html>
