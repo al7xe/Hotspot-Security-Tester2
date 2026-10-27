@@ -144,6 +144,50 @@ def generate_csv():
         flash(str(exc), "error")
         return redirect(url_for("index"))
 
+@app.route("/combination-count", methods=["POST"])
+def combination_count():
+    try:
+        total_digits = int(request.form.get("total_digits", "6"))
+        fixed_prefix = request.form.get("fixed_prefix", "").strip()
+        fixed_suffix = request.form.get("fixed_suffix", "").strip()
+        if not 1 <= total_digits <= 18:
+            raise ValueError("طول الرمز يجب أن يكون بين 1 و18 خانة.")
+        if any(ch not in DIGITS for ch in fixed_prefix + fixed_suffix):
+            raise ValueError("الأرقام الثابتة يجب أن تحتوي على أرقام من 0 إلى 9 فقط.")
+        if len(fixed_prefix) + len(fixed_suffix) > total_digits:
+            raise ValueError("مجموع خانات المقدمة والنهاية الثابتتين أكبر من طول الرمز.")
+        variable_digits = total_digits - len(fixed_prefix) - len(fixed_suffix)
+        possibilities = 10 ** variable_digits
+        return render_template(
+            "index.html", results=None, history=get_history(),
+            combination_summary={
+                "total_digits": total_digits, "fixed_prefix": fixed_prefix,
+                "fixed_suffix": fixed_suffix, "variable_digits": variable_digits,
+                "possibilities": possibilities
+            }
+        )
+    except (ValueError, TypeError) as exc:
+        flash(str(exc), "error")
+        return redirect(url_for("index"))
+
+@app.route("/report-template")
+def report_template():
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["test_id", "authorized_test_account", "expected_result", "observed_result", "notes"])
+    writer.writerow(["TEST-001", "yes/no", "accepted/rejected", "accepted/rejected/not-run", ""])
+    return Response(
+        "\\ufeff" + output.getvalue(), mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="hotspot_authorized_test_report_template.csv"'}
+    )
+
+def get_history():
+    init_db()
+    with sqlite3.connect(DB_PATH) as db:
+        return db.execute(
+            "SELECT created_at, filename, rows_checked, findings FROM audit_log ORDER BY id DESC LIMIT 10"
+        ).fetchall()
+
 @app.route("/router-check", methods=["POST"])
 def router_check():
     uploaded = request.files.get("router_csv")
